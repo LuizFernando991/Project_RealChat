@@ -10,11 +10,13 @@ datasource db {
 model User {
   id           Int      @id() @default(autoincrement())
   username     String   @unique
+  name         String
   email        String   @unique
   password     String
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
   bio          String?
+  hashRt       String?
   profileImage String?  @map("profile_image")
   bannerImage  String?  @map("banner_image")
 
