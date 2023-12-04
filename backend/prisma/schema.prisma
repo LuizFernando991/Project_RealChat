@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id() @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  password     String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  bio          String?
+  profileImage String?  @map("profile_image")
+  bannerImage  String?  @map("banner_image")
+
+  senderFriend             Friendship[]        @relation("senderFriendship")
+  receiverFriend           Friendship[]        @relation("receiverFriendship")
+  sentFriendshipRequest    FriendshipRequest[] @relation("senderFriendshipRequest")
+  recivedFriendshipRequest FriendshipRequest[] @relation("receiverFriendshipRequest")
+  messages                 Message[]
+}
+
+model Friendship {
+  id             Int      @id @default(autoincrement())
+  senderUserId   Int
+  receiverUserId Int
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  senderUser   User @relation("senderFriendship", fields: [senderUserId], references: [id])
+  receiverUser User @relation("receiverFriendship", fields: [receiverUserId], references: [id])
+
+  @@index([senderUserId])
+  @@index([receiverUserId])
+}
+
+model FriendshipRequest {
+  id             Int                     @id() @default(autoincrement())
+  senderUserId   Int
+  receiverUserId Int
+  status         FriendshipRequestStatus @default(pending)
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  senderUser   User @relation("senderFriendshipRequest", fields: [senderUserId], references: [id])
+  receiverUser User @relation("receiverFriendshipRequest", fields: [receiverUserId], references: [id])
+
+  @@index([senderUserId])
+  @@index([receiverUserId])
+}
+
+enum FriendshipRequestStatus {
+  accepted
+  pending
+  rejected
+}
+
+model Conversation {
+  id             Int       @id() @default(autoincrement())
+  senderUserId   Int
+  receiverUserId Int
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  lastMessageId  Int?
+  lastMessage    Message?  @relation("lastMessageRelation", fields: [lastMessageId], references: [id])
+  messages       Message[] @relation("conversationsRelation")
+}
+
+model Message {
+  id             Int      @id() @default(autoincrement())
+  content        String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  authorId       Int
+  conversationId Int
+
+  attachments   MessageAttachment[]
+  conversation  Conversation        @relation("conversationsRelation", fields: [conversationId], references: [id], onDelete: Cascade)
+  lastMessageIn Conversation[]      @relation("lastMessageRelation")
+  author        User                @relation(fields: [authorId], references: [id], onUpdate: Cascade)
+
+  @@index([conversationId])
+}
+
+model MessageAttachment {
+  id        Int                      @id @default(autoincrement())
+  content   MessageAttachmentContent
+  type      String
+  messageId Int?
+  Message   Message?                 @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+enum MessageAttachmentContent {
+  video
+  image
+}
