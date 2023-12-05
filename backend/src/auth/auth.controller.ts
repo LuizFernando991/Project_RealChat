@@ -8,7 +8,6 @@ import {
   HttpStatus
 } from '@nestjs/common'
 import { AuthService } from './auth.service'
-import { AuthGuard } from '@nestjs/passport'
 import { CreateUserDto } from 'src/user/dto/create-user.dto'
 import { CurrentUser } from 'src/decorators/currentUser.decorator'
 import { JwtPayloadWithRefreshToken } from './types/JwtPayloadWithRefreshType'
