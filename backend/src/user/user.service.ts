@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateUserDto } from './dto/create-user.dto'
 import { UserAlreadyExistsException } from '../exceptions/userAlreadyExist'
-import * as bcrypt from 'bcrypt'
+import * as argon from 'argon2'
 
 @Injectable()
 export class UserService {
@@ -23,7 +23,7 @@ export class UserService {
     const newUser = await this.prisma.user.create({
       data: {
         ...createUserDto,
-        password: await bcrypt.hash(createUserDto.password, 10)
+        password: await argon.hash(createUserDto.password)
       }
     })
 
@@ -31,7 +31,7 @@ export class UserService {
   }
 
   async getUserByEmail(email: string) {
-    return this.prisma.user.findUnique({
+    return await this.prisma.user.findUnique({
       where: { email }
     })
   }
@@ -48,11 +48,64 @@ export class UserService {
     return { messsage: 'username is available.' }
   }
 
-  async updateHashRt(userId: number, refreshToken: string | null) {
-    await this.prisma.user.update({
-      where: { id: userId },
+  async createHashRt(
+    userId: number,
+    refreshToken: string | null
+  ): Promise<void> {
+    const count = await this.prisma.refreshToken.count({
+      where: {
+        userId
+      }
+    })
+    if (count >= 3) {
+      const hashs = await this.prisma.refreshToken.findMany({
+        where: {
+          userId
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 1
+      })
+
+      await this.prisma.refreshToken.delete({
+        where: { id: hashs[0].id }
+      })
+    }
+    await this.prisma.refreshToken.create({
       data: {
-        hashRt: refreshToken ? await bcrypt.hash(refreshToken, 10) : null
+        userId,
+        hashRt: await argon.hash(refreshToken)
+      }
+    })
+  }
+
+  async getHashRt(userId: number) {
+    return await this.prisma.refreshToken.findMany({
+      where: { userId }
+    })
+  }
+
+  async deleteHashRt(id: number) {
+    return await this.prisma.refreshToken.delete({
+      where: { id }
+    })
+  }
+
+  async clearAllExpiredHashRt(userId: number) {
+    const createdDateLimit = new Date()
+    createdDateLimit.setDate(createdDateLimit.getDate() - 7)
+
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        userId,
+        createdAt: { lt: createdDateLimit }
+      }
+    })
+  }
+
+  async clearAllHashRt(userId: number) {
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        userId
       }
     })
   }

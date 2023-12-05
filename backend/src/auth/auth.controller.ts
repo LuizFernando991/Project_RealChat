@@ -12,7 +12,6 @@ import { AuthGuard } from '@nestjs/passport'
 import { CreateUserDto } from 'src/user/dto/create-user.dto'
 import { CurrentUser } from 'src/decorators/currentUser.decorator'
 import { JwtPayloadWithRefreshToken } from './types/JwtPayloadWithRefreshType'
-import { JwtPayload } from './types/JwtPayloadType'
 
 @Controller('auth')
 export class AuthController {
@@ -39,9 +38,20 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt-refresh'))
   @HttpCode(HttpStatus.OK)
-  logout(@CurrentUser() user: JwtPayload): Promise<boolean> {
-    return this.authService.logout(user.sub)
+  logout(@CurrentUser() user: JwtPayloadWithRefreshToken): Promise<void> {
+    this.authService.logout(user)
+    return
+  }
+
+  @Post('logoutofallsessions')
+  @UseGuards(AuthGuard('jwt-refresh'))
+  @HttpCode(HttpStatus.OK)
+  logoutOfAllSessions(
+    @CurrentUser() user: JwtPayloadWithRefreshToken
+  ): Promise<void> {
+    this.authService.logOutOfAllSessions(user)
+    return
   }
 }

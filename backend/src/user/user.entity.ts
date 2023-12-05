@@ -5,7 +5,6 @@ export class User implements PrismaUser {
   email: string
   username: string
   password: string
-  hashRt: string
   name: string
   bio: string
   profileImage: string

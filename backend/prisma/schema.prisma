@@ -16,7 +16,6 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
   bio          String?
-  hashRt       String?
   profileImage String?  @map("profile_image")
   bannerImage  String?  @map("banner_image")
 
@@ -25,6 +24,7 @@ model User {
   sentFriendshipRequest    FriendshipRequest[] @relation("senderFriendshipRequest")
   recivedFriendshipRequest FriendshipRequest[] @relation("receiverFriendshipRequest")
   messages                 Message[]
+  refreshTokens            RefreshToken[]
 }
 
 model Friendship {
@@ -92,10 +92,19 @@ model MessageAttachment {
   content   MessageAttachmentContent
   type      String
   messageId Int?
-  Message   Message?                 @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  message   Message?                 @relation(fields: [messageId], references: [id], onDelete: Cascade)
 }
 
 enum MessageAttachmentContent {
   video
   image
+}
+
+model RefreshToken {
+  id        Int      @id() @default(autoincrement())
+  userId    Int
+  hashRt    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

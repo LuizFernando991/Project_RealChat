@@ -6,7 +6,7 @@ import { CreateUserDto } from '../user/dto/create-user.dto'
 import { JwtPayload } from './types/JwtPayloadType'
 import { Tokens } from './types/TokensType'
 import { AuthResponse } from './types/AuthResponseType'
-import * as bcrypt from 'bcrypt'
+import * as argon from 'argon2'
 import { JwtPayloadWithRefreshToken } from './types/JwtPayloadWithRefreshType'
 
 @Injectable()
@@ -22,7 +22,6 @@ export class AuthService {
     const tokens = await this.createTokens(user.id, user.email)
 
     delete user.password
-    delete user.hashRt
 
     return {
       user,
@@ -34,7 +33,6 @@ export class AuthService {
     const tokens = await this.createTokens(user.id, user.email)
 
     delete user.password
-    delete user.hashRt
 
     return {
       user,
@@ -44,20 +42,23 @@ export class AuthService {
 
   async refreshToken(data: JwtPayloadWithRefreshToken) {
     const user = await this.userService.getUserByEmail(data.email)
+    const hashs = await this.userService.getHashRt(data.sub)
 
-    if (
-      !user ||
-      !user.hashRt ||
-      !(await bcrypt.compare(data.refreshToken, user.hashRt))
-    )
-      throw new UnauthorizedException('invalid token')
+    let hasMatch: boolean
 
-    return await this.createAccessToken(user.id, user.email)
+    for await (const h of hashs) {
+      const match = await argon.verify(h.hashRt, data.refreshToken)
+      if (match) hasMatch = true
+    }
+
+    if (!user || !hasMatch) throw new UnauthorizedException('invalid token')
+
+    return await this.createAccessToken(data.sub, user.email)
   }
 
   async validateUser(email: string, password: string): Promise<User> {
     const user = await this.userService.getUserByEmail(email)
-    if (!user || !(await bcrypt.compare(password, user.password)))
+    if (!user || !(await argon.verify(user.password, password)))
       throw new UnauthorizedException('email or password is incorrect')
 
     return user
@@ -72,7 +73,7 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(jwtPayload, {
         secret: process.env.ACCESS_TOKEN_SECRET,
-        expiresIn: '15m'
+        expiresIn: '5m'
       }),
       this.jwtService.signAsync(jwtPayload, {
         secret: process.env.REFRESH_TOKEN_SECRET,
@@ -80,7 +81,8 @@ export class AuthService {
       })
     ])
 
-    await this.userService.updateHashRt(userId, refreshToken)
+    await this.userService.clearAllExpiredHashRt(userId)
+    await this.userService.createHashRt(userId, refreshToken)
 
     return {
       access_token: accessToken,
@@ -99,7 +101,7 @@ export class AuthService {
 
     const accessToken = await this.jwtService.signAsync(jwtPayload, {
       secret: process.env.ACCESS_TOKEN_SECRET,
-      expiresIn: '15m'
+      expiresIn: '5min'
     })
 
     return {
@@ -107,9 +109,21 @@ export class AuthService {
     }
   }
 
-  async logout(userId: number): Promise<boolean> {
-    await this.userService.updateHashRt(userId, null)
+  async logOutOfAllSessions(user: JwtPayloadWithRefreshToken) {
+    await this.userService.clearAllHashRt(user.sub)
+    return
+  }
 
-    return true
+  async logout(user: JwtPayloadWithRefreshToken): Promise<boolean> {
+    const hashs = await this.userService.getHashRt(user.sub)
+
+    for await (const hash of hashs) {
+      const remove = await argon.verify(hash.hashRt, user.refreshToken)
+      if (remove) {
+        this.userService.deleteHashRt(hash.id)
+      }
+    }
+
+    return
   }
 }
