@@ -52,24 +52,6 @@ export class UserService {
     userId: number,
     refreshToken: string | null
   ): Promise<void> {
-    const count = await this.prisma.refreshToken.count({
-      where: {
-        userId
-      }
-    })
-    if (count >= 3) {
-      const hashs = await this.prisma.refreshToken.findMany({
-        where: {
-          userId
-        },
-        orderBy: { createdAt: 'asc' },
-        take: 1
-      })
-
-      await this.prisma.refreshToken.delete({
-        where: { id: hashs[0].id }
-      })
-    }
     await this.prisma.refreshToken.create({
       data: {
         userId,
@@ -94,12 +76,38 @@ export class UserService {
     const createdDateLimit = new Date()
     createdDateLimit.setDate(createdDateLimit.getDate() - 7)
 
-    await this.prisma.refreshToken.deleteMany({
+    const hashs = await this.prisma.refreshToken.findMany({
       where: {
-        userId,
-        createdAt: { lt: createdDateLimit }
-      }
+        userId
+      },
+      orderBy: { createdAt: 'asc' }
     })
+
+    const Allhashs = hashs.reduce(
+      (acc, item) => {
+        if (item.createdAt < createdDateLimit) {
+          acc.expired.push(item)
+        } else {
+          acc.valids.push(item)
+        }
+        return acc
+      },
+      { expired: [], valids: [] }
+    )
+
+    if (Allhashs.expired.length > 0) {
+      await this.prisma.refreshToken.deleteMany({
+        where: {
+          id: { in: Allhashs.expired.map((expired) => expired.id) }
+        }
+      })
+    }
+
+    if (Allhashs.valids.length >= 3) {
+      await this.prisma.refreshToken.delete({
+        where: { id: hashs[0].id }
+      })
+    }
   }
 
   async clearAllHashRt(userId: number) {
