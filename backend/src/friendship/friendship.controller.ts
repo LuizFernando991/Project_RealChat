@@ -11,7 +11,7 @@ import { JwtPayload } from 'src/auth/types/JwtPayloadType'
 import { CurrentUser } from 'src/decorators/currentUser.decorator'
 import { JwtAuthGuard } from 'src/guards/jwtAuthGuard'
 import { FriendshipService } from './friendship.service'
-import { DeleteFriendshipDto } from './dto/deletefriendship.dto'
+import { DeleteFriendshipDto } from './dto/delete-friendship.dto'
 
 @Controller('friendship')
 export class FriendshipController {

@@ -19,6 +19,8 @@ model User {
   profileImage String?  @map("profile_image")
   bannerImage  String?  @map("banner_image")
 
+  conversationsAsSender    Conversation[]      @relation("senderConversation")
+  conversationAsReceiver   Conversation[]      @relation("receiverConversation")
   senderFriend             Friendship[]        @relation("senderFriendship")
   receiverFriend           Friendship[]        @relation("receiverFriendship")
   sentFriendshipRequest    FriendshipRequest[] @relation("senderFriendshipRequest")
@@ -65,14 +67,20 @@ enum FriendshipRequestStatus {
 }
 
 model Conversation {
-  id             Int       @id() @default(autoincrement())
+  id             Int      @id() @default(autoincrement())
   senderUserId   Int
   receiverUserId Int
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
   lastMessageId  Int?
-  lastMessage    Message?  @relation("lastMessageRelation", fields: [lastMessageId], references: [id])
-  messages       Message[] @relation("conversationsRelation")
+
+  senderUser   User      @relation("senderConversation", fields: [senderUserId], references: [id])
+  receiverUser User      @relation("receiverConversation", fields: [receiverUserId], references: [id])
+  lastMessage  Message?  @relation("lastMessageRelation", fields: [lastMessageId], references: [id])
+  messages     Message[] @relation("conversationsRelation")
+
+  @@unique([senderUserId, receiverUserId])
+  @@unique([receiverUserId, senderUserId])
 }
 
 model Message {
